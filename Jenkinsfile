@@ -29,12 +29,22 @@ pipeline {
         }
 
         stage('Deploy') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
             steps {
-                bat '''
-                docker run --rm -v "%CD%:/app" -w /app -e NETLIFY_AUTH_TOKEN=%NETLIFY_AUTH_TOKEN% node:18-alpine sh -c " \
-                    npm install netlify-cli && \
-                    ./node_modules/.bin/netlify deploy --auth=$NETLIFY_AUTH_TOKEN --site=nfp_xCTxEvuv1dXoce4BuE1pjtkhhKmXBJGe2f59 --dir=. --prod \
-                "
+                echo "Deploying the project to Netlify..."
+                sh '''
+                    npm init -y  # <--- เพิ่มบรรทัดนี้ ถ้ายังไม่มี package.json
+                    npm install netlify-cli
+                    ./node_modules/.bin/netlify deploy \
+                      --auth=$NETLIFY_AUTH_TOKEN \
+                      --site=$NETLIFY_SITE_ID \
+                      --dir=. \
+                      --prod
                 '''
             }
         }
