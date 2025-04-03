@@ -31,12 +31,11 @@ pipeline {
             steps {
                 echo "🚀 Deploying to Netlify..."
                 bat """
-                    docker run --rm -v "%CD%:/app" -w /app -e NETLIFY_AUTH_TOKEN=%NETLIFY_AUTH_TOKEN% node:18-alpine sh -c ^
+                    docker run --rm --user 0 -v "%CD%:/app" -w /app -e NETLIFY_AUTH_TOKEN=%NETLIFY_AUTH_TOKEN% node:18-alpine sh -c ^
                     "npm init -y && npm install netlify-cli && ./node_modules/.bin/netlify deploy --auth=%NETLIFY_AUTH_TOKEN% --site=%NETLIFY_SITE_ID% --dir=. --prod"
                 """
             }
         }
-
         stage('Post Deploy') {
             steps {
                 echo "🎉 Deployment complete! Check your site on Netlify."
