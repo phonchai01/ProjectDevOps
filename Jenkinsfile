@@ -32,12 +32,11 @@ pipeline {
                 echo "🚀 Deploying to Netlify..."
                 bat """
                     docker run --rm -v "%CD%:/app" -w /app -e NETLIFY_AUTH_TOKEN=%NETLIFY_AUTH_TOKEN% node:18-alpine sh -c ^
-                    "npm install -g netlify-cli && netlify deploy --auth=%NETLIFY_AUTH_TOKEN% --site=%NETLIFY_SITE_ID% --dir=. --prod"
+                    "npm install -g netlify-cli && netlify deploy --auth=%NETLIFY_AUTH_TOKEN% --site=%NETLIFY_SITE_ID% --dir=. --prod --message='Deployed via Jenkins' --json --no-save"
                 """
             }
         }
-
-
+        
 
         stage('Post Deploy') {
             steps {
