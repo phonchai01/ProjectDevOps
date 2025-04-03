@@ -30,17 +30,13 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo "🚀 Deploying to Netlify..."
-        
-                // สร้าง package.json ข้างนอกก่อน
-                bat 'if not exist package.json npm init -y'
-        
-                // แล้วค่อยรันใน container
                 bat """
-                    docker run --rm --user 0 -v "%CD%:/app" -w /app -e NETLIFY_AUTH_TOKEN=%NETLIFY_AUTH_TOKEN% node:18-alpine sh -c ^
-                    "npm install netlify-cli && ./node_modules/.bin/netlify deploy --auth=%NETLIFY_AUTH_TOKEN% --site=%NETLIFY_SITE_ID% --dir=. --prod"
+                    docker run --rm -v "%CD%:/app" -w /app -e NETLIFY_AUTH_TOKEN=%NETLIFY_AUTH_TOKEN% node:18-alpine sh -c ^
+                    "npm install -g netlify-cli && netlify deploy --auth=%NETLIFY_AUTH_TOKEN% --site=%NETLIFY_SITE_ID% --dir=. --prod"
                 """
             }
         }
+
 
         stage('Post Deploy') {
             steps {
