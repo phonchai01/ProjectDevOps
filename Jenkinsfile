@@ -2,71 +2,122 @@ pipeline {
     agent any
 
     environment {
-        NETLIFY_SITE_ID = 'f561d6c4-55b4-40a8-99db-d284ea24aafc'
-        NETLIFY_AUTH = credentials('netlify-token')
+        NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
+        NETLIFY_SITE_ID = credentials('netlify-site-id')
     }
 
     stages {
         stage('Build') {
-            agent{
-                docker{
+            agent {
+                docker {
                     image 'node:18-alpine'
                     reuseNode true
                 }
             }
             steps {
-                sh '''
-                    echo "================Building the project================"
-                    ls -la
-                    node --version
-                    npm --version
-                    npm ci
-                    npm run build
-                    ls -la
-                '''
-            }
-        }
-
-
-        stage('Test')   {
-            agent{
-                docker{
-                    image 'node:18-alpine'
-                    reuseNode true
+                script {
+                    echo "🏗️ Building the project..."
+                    sh '''
+                    npm install
+                    npx react-scripts build'''
                 }
             }
-            steps{
-                sh '''
-                    echo "================Testing the project================"
-                    test -f build/index.html
-                    npm test
-                '''
+            post {
+                success {
+                    echo "✅ Build Successful! 🎉"
+                }
+                failure {
+                    echo "❌ Build Failed! Check logs for details."
+                }
             }
         }
 
-        stage('Deploy') {
-            agent{
-                docker{
+        // Run tests (if applicable)
+        stage('Test') {
+            agent {
+                docker {
                     image 'node:18-alpine'
                     reuseNode true
                 }
             }
             steps {
-                sh '''
-                    npm install netlify-cli --save-dev
-                    node_modules/.bin/netlify --version
-                    echo "================Deploying the project================"
-                    echo "Deploying to Netlify Site ID: $NETLIFY_SITE_ID"
-                    node_modules/.bin/netlify deploy --dir=build --prod --site=$NETLIFY_SITE_ID --auth=$NETLIFY_AUTH
-                '''
+                script {
+                    echo "🔬 Running tests..."
+                    sh 'npm test'  // ปรับคำสั่งให้เป็นคำสั่งที่ใช้ทดสอบโปรเจคของคุณ
+                }
+            }
+            post {
+                success {
+                    echo "✅ Test Successful! 🎉"
+                }
+                failure {
+                    echo "❌ Test Failed! Check logs for details."
+                }
             }
         }
 
+        // Deploy to Netlify
+        stage('Deploy to Netlify') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                script {
+                    echo "🚀 Deploying to Netlify..."
+                    sh '''
+                    npx netlify deploy --prod --dir=build \
+                    --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID
+                    '''
+                }
+            }
+            post {
+                success {
+                    echo "✅ Deployment Successful! 🎉"
+                    echo "👉 เปิดเว็บไซต์ที่: https://kbdevopfn.netlify.app/"
+                }
+                failure {
+                    echo "❌ Deployment Failed! Check logs for details."
+                }
+            }
+        }
 
-    }
-    post {
-        always{
-            junit 'test-results/junit.xml'
+        // Post deploy actions, e.g., notify Slack, send emails, etc.
+        stage('Post Deploy') {
+            agent any
+            steps {
+                script {
+                    echo "🔍 Monitoring server resources during the test..."
+            
+                    // Run resource monitoring commands and save output
+                    try {
+                        sh '''
+                            echo "Top 10 processes by memory usage:" > resource_report.txt
+                            ps aux --sort=-%mem | head -n 10 >> resource_report.txt
+                            
+                            echo "\nMemory usage:" >> resource_report.txt
+                            free -h >> resource_report.txt
+                            
+                            echo "\nSystem performance stats (vmstat):" >> resource_report.txt
+                            vmstat 1 5 >> resource_report.txt
+                        '''
+                    } catch (e) {
+                        echo "Error monitoring server resources: ${e}"
+                    }
+                }
+            }
+            post {
+                success {
+                    echo "✅ Resource monitoring completed successfully! Here are the results:"
+                    sh 'cat resource_report.txt'  // แสดงข้อมูลที่บันทึกไว้
+                }
+                failure {
+                    echo "❌ Resource monitoring encountered an error!"
+                }
+            }
         }
     }
+
 }
