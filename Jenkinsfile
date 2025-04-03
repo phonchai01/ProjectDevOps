@@ -9,59 +9,47 @@ pipeline {
     stages {
         stage('Build') {
             steps {
+                echo "✅ Checking required files..."
                 bat '''
-                docker run --rm -v "%CD%:/app" -w /app node:18-alpine sh -c " \
-                    if [ ! -f index.html ]; then echo 'index.html is missing!' && exit 1; fi && \
-                    echo 'All necessary files are in place!' \
-                "
+                    docker run --rm -v "%CD%:/app" -w /app node:18-alpine sh -c ^
+                    "if [ ! -f index.html ]; then echo 'index.html is missing!' && exit 1; fi && echo 'All necessary files are in place!'"
                 '''
             }
         }
 
         stage('Test') {
             steps {
+                echo "🧪 Testing function load..."
                 bat '''
-                docker run --rm -v "%CD%:/app" -w /app node:18-alpine sh -c " \
-                    node -e \\"console.log('Function loaded successfully!')\\" \
-                "
+                    docker run --rm -v "%CD%:/app" -w /app node:18-alpine sh -c ^
+                    "node -e \\"console.log('Function loaded successfully!')\\""
                 '''
             }
         }
 
         stage('Deploy') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
             steps {
-                echo "Deploying the project to Netlify..."
-                sh '''
-                    npm init -y  # <--- เพิ่มบรรทัดนี้ ถ้ายังไม่มี package.json
-                    npm install netlify-cli
-                    ./node_modules/.bin/netlify deploy \
-                      --auth=$NETLIFY_AUTH_TOKEN \
-                      --site=$NETLIFY_SITE_ID \
-                      --dir=. \
-                      --prod
-                '''
+                echo "🚀 Deploying to Netlify..."
+                bat """
+                    docker run --rm -v "%CD%:/app" -w /app -e NETLIFY_AUTH_TOKEN=%NETLIFY_AUTH_TOKEN% node:18-alpine sh -c ^
+                    "npm init -y && npm install netlify-cli && ./node_modules/.bin/netlify deploy --auth=%NETLIFY_AUTH_TOKEN% --site=%NETLIFY_SITE_ID% --dir=. --prod"
+                """
             }
         }
 
         stage('Post Deploy') {
             steps {
-                echo "🎉 Deployment is complete! Your website is now live."
+                echo "🎉 Deployment complete! Check your site on Netlify."
             }
         }
     }
 
     post {
         success {
-            echo "CI/CD pipeline executed successfully!"
+            echo "✅ CI/CD pipeline completed successfully!"
         }
         failure {
-            echo "❌ An error occurred during the pipeline execution. Please check the logs!"
+            echo "❌ Something went wrong. Please check the logs."
         }
     }
 }
