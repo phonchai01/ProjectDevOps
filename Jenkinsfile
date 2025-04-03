@@ -2,122 +2,78 @@ pipeline {
     agent any
 
     environment {
-        NETLIFY_AUTH_TOKEN = credentials('netlify-auth-token')
-        NETLIFY_SITE_ID = credentials('netlify-site-id')
+        NETLIFY_SITE_ID = 'nfp_xCTxEvuv1dXoce4BuE1pjtkhhKmXBJGe2f59'
+        NETLIFY_AUTH_TOKEN = credentials('netlifyToken')
     }
 
     stages {
-        stage('Build') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                }
-            }
-            steps {
-                script {
-                    echo "🏗️ Building the project..."
-                    sh '''
-                    npm install
-                    npx react-scripts build'''
-                }
-            }
-            post {
-                success {
-                    echo "✅ Build Successful! 🎉"
-                }
-                failure {
-                    echo "❌ Build Failed! Check logs for details."
-                }
+    stage('Build') {
+        agent {
+            docker {
+                image 'node:18-alpine'
+                reuseNode true
             }
         }
-
-        // Run tests (if applicable)
-        stage('Test') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                }
-            }
-            steps {
-                script {
-                    echo "🔬 Running tests..."
-                    sh 'npm test'  // ปรับคำสั่งให้เป็นคำสั่งที่ใช้ทดสอบโปรเจคของคุณ
-                }
-            }
-            post {
-                success {
-                    echo "✅ Test Successful! 🎉"
-                }
-                failure {
-                    echo "❌ Test Failed! Check logs for details."
-                }
-            }
-        }
-
-        // Deploy to Netlify
-        stage('Deploy to Netlify') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                }
-            }
-            steps {
-                script {
-                    echo "🚀 Deploying to Netlify..."
-                    sh '''
-                    npx netlify deploy --prod --dir=build \
-                    --auth=$NETLIFY_AUTH_TOKEN --site=$NETLIFY_SITE_ID
-                    '''
-                }
-            }
-            post {
-                success {
-                    echo "✅ Deployment Successful! 🎉"
-                    echo "👉 เปิดเว็บไซต์ที่: https://kbdevopfn.netlify.app/"
-                }
-                failure {
-                    echo "❌ Deployment Failed! Check logs for details."
-                }
-            }
-        }
-
-        // Post deploy actions, e.g., notify Slack, send emails, etc.
-        stage('Post Deploy') {
-            agent any
-            steps {
-                script {
-                    echo "🔍 Monitoring server resources during the test..."
-            
-                    // Run resource monitoring commands and save output
-                    try {
-                        sh '''
-                            echo "Top 10 processes by memory usage:" > resource_report.txt
-                            ps aux --sort=-%mem | head -n 10 >> resource_report.txt
-                            
-                            echo "\nMemory usage:" >> resource_report.txt
-                            free -h >> resource_report.txt
-                            
-                            echo "\nSystem performance stats (vmstat):" >> resource_report.txt
-                            vmstat 1 5 >> resource_report.txt
-                        '''
-                    } catch (e) {
-                        echo "Error monitoring server resources: ${e}"
-                    }
-                }
-            }
-            post {
-                success {
-                    echo "✅ Resource monitoring completed successfully! Here are the results:"
-                    sh 'cat resource_report.txt'  // แสดงข้อมูลที่บันทึกไว้
-                }
-                failure {
-                    echo "❌ Resource monitoring encountered an error!"
-                }
-            }
+        steps {
+            echo " Verifying required files..."
+            sh '''
+                test -f index.html || (echo "index.html is missing!" && exit 1)
+                test -f netlify/functions/random-menu.js || (echo " The random menu function is missing!" && exit 1)
+                echo "All necessary files are in place!"
+            '''
         }
     }
 
+    stage('Test') {
+        agent {
+            docker {
+                image 'node:18-alpine'
+                reuseNode true
+            }
+        }
+        steps {
+            echo "Running function load test..."
+            sh '''
+                node -e "require('./netlify/functions/random-menu.js'); console.log('Function loaded successfully!')"
+            '''
+        }
+    }
+
+    stage('Deploy') {
+        agent {
+            docker {
+                image 'node:18-alpine'
+                reuseNode true
+            }
+        }
+        steps {
+            echo "Deploying the project to Netlify..."
+            sh '''
+                npm install netlify-cli
+                node_modules/.bin/netlify deploy \
+                  --auth=$NETLIFY_AUTH_TOKEN \
+                  --site=$NETLIFY_SITE_ID \
+                  --dir=. \
+                  --prod
+            '''
+        }
+    }
+
+    stage('Post Deploy') {
+        steps {
+            echo "🎉 Deployment is complete! Your website is now live."
+        }
+    }
+}
+
+post {
+    success {
+        echo "CI/CD pipeline executed successfully!"
+    }
+    failure {
+        echo " An error occurred during the pipeline execution. Please check the logs! "
+    }
+}
+
+        
 }
